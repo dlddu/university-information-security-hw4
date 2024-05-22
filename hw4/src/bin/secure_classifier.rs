@@ -1,5 +1,5 @@
 use darknet::image_classifier;
-use std::{env, fs};
+use std::{env, ffi::CString, fs};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -16,7 +16,7 @@ fn main() {
 
     for parameter in parameters {
         let _user = parameter.first().unwrap();
-        let filename = parameter.get(1).unwrap();
+        let filename = CString::new(parameter.get(1).unwrap().to_string()).unwrap();
         let top_k = parameter.get(2).unwrap().parse::<i32>().unwrap();
 
         unsafe { image_classifier(filename.as_ptr(), top_k) };
