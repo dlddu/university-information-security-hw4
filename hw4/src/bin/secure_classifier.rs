@@ -4,8 +4,10 @@ use nix::libc::SIGCHLD;
 use nix::mount::{mount, umount2, MntFlags, MsFlags};
 use nix::sched::{clone, CloneFlags};
 use nix::sys::wait::{waitid, WaitPidFlag};
-use nix::unistd::{chdir, pivot_root, Pid};
+use nix::unistd::{chdir, dup2, pivot_root, Pid};
 use std::ffi::{CStr, CString};
+use std::fs::OpenOptions;
+use std::os::fd::AsRawFd;
 use std::path::Path;
 use std::{env, fs};
 
@@ -22,6 +24,16 @@ fn main() {
                 .collect::<Vec<String>>()
         })
         .collect::<Vec<Vec<String>>>();
+
+    let file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(false)
+        .open("results.txt")
+        .expect("Failed to open file");
+
+    dup2(file.as_raw_fd(), 1).expect("Failed to redirect stdout");
+    dup2(file.as_raw_fd(), 2).expect("Failed to redirect stderr");
 
     for parameter in parameters {
         let user = parameter.first().unwrap();
@@ -49,8 +61,6 @@ fn main() {
         )
         .expect("wait pid failed");
     }
-
-    println!("finished");
 }
 
 fn run_image_classifier(username: &String, filename: &String, top_k: i32) {

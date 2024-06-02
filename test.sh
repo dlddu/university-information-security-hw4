@@ -31,7 +31,9 @@ fi
 
 export LD_LIBRARY_PATH=$(pwd):$LD_LIBRARY_PATH
 
-echo "layer     filters    size              input                output
+./secure_classifier requests.txt
+
+DIFF_RESULT=$(echo "layer     filters    size              input                output
 0 conv     16  3 x 3 / 1   256 x 256 x   3   ->   256 x 256 x  16  0.057 BFLOPs
 1 max          2 x 2 / 2   256 x 256 x  16   ->   128 x 128 x  16
 2 conv     32  3 x 3 / 1   128 x 128 x  16   ->   128 x 128 x  32  0.151 BFLOPs
@@ -73,6 +75,6 @@ Loading weights from darknet.weights...Done!
 data/kyle/eagle.jpg: Predicted in 0.198930 seconds.
 87.09%: bald eagle
 11.46%: kite
-0.53%: hen" > results.txt
+0.53%: hen" | diff results.txt -)
 
-./secure_classifier requests.txt
+echo -e $DIFF_RESULT
