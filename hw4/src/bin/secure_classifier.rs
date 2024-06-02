@@ -74,8 +74,6 @@ fn run_image_classifier(username: &String, filename: &String, top_k: i32) {
 
     fs::remove_dir("/put_old").unwrap_or_default();
 
-    return;
-
     unsafe {
         image_classifier(
             CStr::as_ptr(&CString::new(Path::new(filename).to_str().unwrap()).unwrap()),

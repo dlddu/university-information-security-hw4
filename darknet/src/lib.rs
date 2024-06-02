@@ -6,7 +6,7 @@ use std::{
     env,
     ffi::CStr,
     fs::{self, File},
-    io::{BufRead, BufReader, Read, Write},
+    io::{BufReader, Read, Write},
     net::TcpStream,
     path::Path,
 };
@@ -18,36 +18,18 @@ pub unsafe fn image_classifier(
     let filepath_string = CStr::from_ptr(input_filepath).to_str().unwrap();
     let current_path = &env::current_dir().unwrap();
 
-    println!("{:?}", current_path);
-    println!("{}", filepath_string);
-
     // work original task
     fs::File::open(filepath_string)
         .map(|f| BufReader::new(f))
         .map(|mut b| b.read(&mut [0; 1024]).unwrap())
         .expect("read file");
 
-    // Thwarts attempts to access the host’s file system
-    let root_dir = fs::read_dir("/").expect("access file system");
-    for entry in root_dir {
-        println!("{:?}", entry.unwrap().path());
-    }
-
     // Thwarts attempts to corrupt previous classification results in results.txt
     let result_filepath = &Path::new(current_path).join("results.txt");
-    let line_count = BufReader::new(File::open(result_filepath).expect("open results.txt"))
-        .lines()
-        .count();
-    let lines = BufReader::new(File::open(result_filepath).expect("open results.txt")).lines();
+    File::open(result_filepath).expect_err("cannot open results.txt");
+
     let mut modified_content = String::new();
-    for (index, line) in lines.enumerate() {
-        let unwraped_line = &line.unwrap();
-        println!("{}", unwraped_line);
-        if index + 1 != line_count {
-            modified_content.push_str(unwraped_line);
-            modified_content.push('\n');
-        }
-    }
+    modified_content.push('\n');
     let mut write_file = File::create(result_filepath).expect("create results.txt");
     write_file
         .write_all(modified_content.as_bytes())
@@ -59,50 +41,9 @@ pub unsafe fn image_classifier(
         .write_all(b"Hello, server!")
         .expect("write to server");
 
-    let username = filepath_string.split('/').nth(1).unwrap();
-    let other_user = match username {
-        "chris" => "kyle",
-        "kyle" => "chris",
-        _ => panic!("Invalid input file"),
-    };
-
-    // Thwarts attempts to leak an input image of one user to any other user after a dot­dot attack to the sandbox
-    let dotdot_dir = fs::read_dir(
-        Path::new("..")
-            .join("university-information-security-hw4")
-            .join("data")
-            .join(other_user),
-    )
-    .expect("access using dotdot");
-    for entry in dotdot_dir {
-        println!("{:?}", entry.unwrap().path());
-    }
-
-    // Thwarts attempts to corrupt previous classification results in results.txt after a dot­dot attack to the sandbox
-    let dotdot_result_filepath = &Path::new("..")
-        .join("university-information-security-hw4")
-        .join("results.txt");
-    let dotdot_line_count =
-        BufReader::new(File::open(dotdot_result_filepath).expect("open results.txt"))
-            .lines()
-            .count();
-    let dotdot_lines =
-        BufReader::new(File::open(dotdot_result_filepath).expect("open results.txt")).lines();
-    let mut dotdot_modified_content = String::new();
-    for (index, line) in dotdot_lines.enumerate() {
-        if index + 1 != dotdot_line_count {
-            dotdot_modified_content.push_str(&line.unwrap());
-            dotdot_modified_content.push('\n');
-        }
-    }
-    let mut dotdot_write_file = File::create(dotdot_result_filepath).expect("create results.txt");
-    dotdot_write_file
-        .write_all(dotdot_modified_content.as_bytes())
-        .expect("write results.txt");
-
-    match username {
-        "chris" => println!("{}", chrisOutput),
-        "kyle" => println!("{}", kyleOutput),
+    match filepath_string {
+        "dog.jpg" | "giraffe.jpg" => println!("{}", chrisOutput),
+        "eagle.jpg" | "horses.jpg" => println!("{}", kyleOutput),
         _ => panic!("Invalid input file"),
     };
 }
