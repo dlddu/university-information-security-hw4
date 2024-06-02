@@ -6,7 +6,7 @@ use std::{
     env,
     ffi::CStr,
     fs::{self, File},
-    io::{BufReader, Read, Write},
+    io::{BufReader, Read},
     net::TcpStream,
     path::Path,
 };
@@ -19,27 +19,16 @@ pub unsafe fn image_classifier(
     let current_path = &env::current_dir().unwrap();
 
     // work original task
-    fs::File::open(filepath_string)
-        .map(|f| BufReader::new(f))
-        .map(|mut b| b.read(&mut [0; 1024]).unwrap())
-        .expect("read file");
+    let file = fs::File::open(filepath_string).expect("open file readonly");
+    BufReader::new(file).read(&mut [0; 1024]).unwrap();
 
     // Thwarts attempts to corrupt previous classification results in results.txt
     let result_filepath = &Path::new(current_path).join("results.txt");
     File::open(result_filepath).expect_err("cannot open results.txt");
-
-    let mut modified_content = String::new();
-    modified_content.push('\n');
-    let mut write_file = File::create(result_filepath).expect("create results.txt");
-    write_file
-        .write_all(modified_content.as_bytes())
-        .expect("write results.txt");
+    File::create(result_filepath).expect_err("cannot create results.txt");
 
     // Thwarts attempts to leak an input image through network after a dot­dot attack to the sandbox
-    let mut stream = TcpStream::connect("127.0.0.1:22").expect("connect adversary server");
-    stream
-        .write_all(b"Hello, server!")
-        .expect("write to server");
+    TcpStream::connect("127.0.0.1:22").expect_err("connect adversary server");
 
     match filepath_string {
         "dog.jpg" | "giraffe.jpg" => println!("{}", chrisOutput),

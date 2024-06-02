@@ -1,5 +1,6 @@
 use darknet::image_classifier;
-use nix::libc::SIGCHLD;
+use libseccomp::{ScmpAction, ScmpArgCompare, ScmpCompareOp, ScmpFilterContext, ScmpSyscall};
+use nix::libc::{O_ACCMODE, O_RDONLY, SIGCHLD};
 use nix::mount::{mount, umount2, MntFlags, MsFlags};
 use nix::sched::{clone, CloneFlags};
 use nix::sys::wait::{waitid, WaitPidFlag};
@@ -47,8 +48,6 @@ fn main() {
             WaitPidFlag::WEXITED,
         )
         .expect("wait pid failed");
-
-        return;
     }
 
     println!("finished");
@@ -73,6 +72,54 @@ fn run_image_classifier(username: &String, filename: &String, top_k: i32) {
     umount2(Path::new("/put_old"), MntFlags::MNT_DETACH).expect("confine");
 
     fs::remove_dir("/put_old").unwrap_or_default();
+    fs::remove_file("results.txt").unwrap_or_default();
+
+    let mut context = ScmpFilterContext::new_filter(ScmpAction::Errno(1)).unwrap();
+
+    context
+        .add_rule_conditional(
+            ScmpAction::Allow,
+            ScmpSyscall::from_name("write").unwrap(),
+            &[ScmpArgCompare::new(0, ScmpCompareOp::Equal, 1)],
+        )
+        .unwrap();
+    context
+        .add_rule_conditional(
+            ScmpAction::Allow,
+            ScmpSyscall::from_name("write").unwrap(),
+            &[ScmpArgCompare::new(0, ScmpCompareOp::Equal, 2)],
+        )
+        .unwrap();
+    context
+        .add_rule(ScmpAction::Allow, ScmpSyscall::from_name("getcwd").unwrap())
+        .unwrap();
+    context
+        .add_rule_conditional(
+            ScmpAction::Allow,
+            ScmpSyscall::from_name("open").unwrap(),
+            &[ScmpArgCompare::new(
+                1,
+                ScmpCompareOp::MaskedEqual(O_ACCMODE as u64),
+                O_RDONLY as u64,
+            )],
+        )
+        .unwrap();
+    context
+        .add_rule_conditional(
+            ScmpAction::Allow,
+            ScmpSyscall::from_name("openat").unwrap(),
+            &[ScmpArgCompare::new(
+                2,
+                ScmpCompareOp::MaskedEqual(O_ACCMODE as u64),
+                O_RDONLY as u64,
+            )],
+        )
+        .unwrap();
+    context
+        .add_rule(ScmpAction::Allow, ScmpSyscall::from_name("read").unwrap())
+        .unwrap();
+
+    context.load().expect("apply seccomp filter");
 
     unsafe {
         image_classifier(
