@@ -1,0 +1,5 @@
+2015147548 조성준
+
+secure_classifier 프로그램은 namespace와 seccomp 기능을 이용해 isolate 환경에서 프로그램을 실행할 수 있게 하는 프로그램입니다.
+
+mount, user 네임스페이스를 이용해 프로그램이 주어진 파일 외의 파일 시스템에 접근할 수 없도록 하고, seccomp를 이용해 프로그램이 socket 통신을 하지 못하도록 제한합니다.
