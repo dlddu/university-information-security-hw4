@@ -6,16 +6,13 @@ use nix::sched::{clone, CloneFlags};
 use nix::sys::wait::{waitid, WaitPidFlag};
 use nix::unistd::{chdir, dup2, pivot_root, Pid};
 use std::ffi::{CStr, CString};
+use std::fs;
 use std::fs::OpenOptions;
 use std::os::fd::AsRawFd;
 use std::path::Path;
-use std::{env, fs};
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-
-    let input_filename = &args[1];
-    let parameters = fs::read_to_string(input_filename)
+    let parameters = fs::read_to_string("requests.txt")
         .unwrap()
         .lines()
         .map(|line| {
@@ -27,18 +24,20 @@ fn main() {
 
     let file = OpenOptions::new()
         .create(true)
-        .write(true)
+        .write(false)
+        .append(true)
         .truncate(false)
         .open("results.txt")
         .expect("Failed to open file");
 
     dup2(file.as_raw_fd(), 1).expect("Failed to redirect stdout");
-    dup2(file.as_raw_fd(), 2).expect("Failed to redirect stderr");
 
     for parameter in parameters {
         let user = parameter.first().unwrap();
         let filename = parameter.get(1).unwrap();
         let top_k = parameter.get(2).unwrap().parse::<i32>().unwrap();
+
+        println!("[{}:{}:{}]", user, filename, top_k);
 
         let pid: Result<Pid, nix::errno::Errno> = unsafe {
             clone(
@@ -49,7 +48,7 @@ fn main() {
                 vec![0; 1024 * 1024].as_mut_slice(),
                 CloneFlags::CLONE_NEWNS
                     | CloneFlags::CLONE_NEWUSER
-                    | CloneFlags::CLONE_NEWPID
+                    | CloneFlags::CLONE_NEWNET
                     | CloneFlags::CLONE_IO,
                 Some(SIGCHLD),
             )
@@ -60,6 +59,8 @@ fn main() {
             WaitPidFlag::WEXITED,
         )
         .expect("wait pid failed");
+
+        fs::remove_dir_all("./mnt").unwrap();
     }
 }
 
@@ -110,6 +111,4 @@ fn run_image_classifier(username: &String, filename: &String, top_k: i32) {
             top_k,
         )
     };
-
-    fs::remove_dir_all("/data").unwrap();
 }
